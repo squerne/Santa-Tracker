@@ -5,11 +5,12 @@ import { City, UserLocation } from '../types';
 
 interface MapViewProps {
   cities: City[];
-  santaPos: { lat: number; lng: number; name: string };
+  santaPos: { lat: number; lng: number; name: string; country: string };
   userLocation: UserLocation | null;
+  t: (key: string) => string;
 }
 
-const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => {
+const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation, t }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const santaMarkerRef = useRef<L.Marker | null>(null);
@@ -18,27 +19,32 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
   const pathRef = useRef<L.Polyline | null>(null);
 
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
     // Initialize map
     mapRef.current = L.map(mapContainerRef.current, {
       center: [20, 0],
       zoom: 2,
       minZoom: 2,
-      maxZoom: 10,
+      maxZoom: 12,
       zoomControl: false,
       attributionControl: false,
     });
 
-    // Dark-themed tiles (CartoDB Dark Matter is open source and fits the aesthetic)
+    // Dark-themed tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(mapRef.current);
 
     cityMarkersRef.current = L.layerGroup().addTo(mapRef.current);
 
+    setTimeout(() => {
+      mapRef.current?.invalidateSize();
+    }, 200);
+
     return () => {
       mapRef.current?.remove();
+      mapRef.current = null;
     };
   }, []);
 
@@ -47,10 +53,10 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
     if (!mapRef.current) return;
 
     const santaIcon = L.divIcon({
-      html: `<div class="text-4xl filter drop-shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-bounce">🛷</div>`,
+      html: `<div class="text-5xl filter drop-shadow-[0_0_15px_rgba(255,0,0,1)] animate-bounce select-none">🛷</div>`,
       className: 'santa-icon',
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
+      iconSize: [50, 50],
+      iconAnchor: [25, 25]
     });
 
     if (santaMarkerRef.current) {
@@ -59,8 +65,7 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
       santaMarkerRef.current = L.marker([santaPos.lat, santaPos.lng], { icon: santaIcon }).addTo(mapRef.current);
     }
     
-    // Smooth follow
-    mapRef.current.panTo([santaPos.lat, santaPos.lng], { animate: true, duration: 1 });
+    mapRef.current.panTo([santaPos.lat, santaPos.lng], { animate: true, duration: 2 });
   }, [santaPos]);
 
   // Update City Pins
@@ -81,7 +86,7 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
         fillOpacity: 0.8,
       });
       
-      dot.bindTooltip(`${city.name}, ${city.country}`, { direction: 'top', offset: [0, -10] });
+      dot.bindTooltip(`${city.name}, ${city.country}`, { direction: 'top', offset: [0, -10], className: 'map-tooltip' });
       cityMarkersRef.current?.addLayer(dot);
     });
 
@@ -91,9 +96,9 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
       pathRef.current.setLatLngs(visitedCoords);
     } else {
       pathRef.current = L.polyline(visitedCoords, {
-        color: 'rgba(255, 255, 255, 0.3)',
-        weight: 2,
-        dashArray: '5, 10'
+        color: 'rgba(255, 255, 255, 0.4)',
+        weight: 3,
+        dashArray: '8, 12'
       }).addTo(mapRef.current);
     }
   }, [cities]);
@@ -104,8 +109,8 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
 
     const userIcon = L.divIcon({
       html: `<div class="relative">
-               <div class="absolute -top-3 -left-3 w-6 h-6 bg-blue-500/20 rounded-full animate-ping"></div>
-               <div class="w-2 h-2 bg-blue-400 rounded-full border border-white"></div>
+               <div class="absolute -top-4 -left-4 w-8 h-8 bg-blue-500/30 rounded-full animate-ping"></div>
+               <div class="w-3 h-3 bg-blue-400 rounded-full border-2 border-white shadow-[0_0_10px_#60a5fa]"></div>
              </div>`,
       className: 'user-icon'
     });
@@ -119,18 +124,17 @@ const MapView: React.FC<MapViewProps> = ({ cities, santaPos, userLocation }) => 
 
   return (
     <div className="w-full h-full relative group">
-      <div ref={mapContainerRef} className="w-full h-full" />
+      <div ref={mapContainerRef} className="absolute inset-0 z-0" style={{ height: '100%' }} />
       
-      {/* HUD overlays stay on top of Leaflet */}
-      <div className="absolute top-6 right-6 z-[1000] bg-black/60 p-4 rounded-2xl border border-white/10 backdrop-blur-xl flex flex-col gap-3 text-[10px] font-black tracking-widest uppercase pointer-events-none">
+      <div className="absolute top-6 right-6 z-[1000] bg-black/70 p-4 rounded-2xl border border-white/10 backdrop-blur-xl flex flex-col gap-3 text-[10px] font-black tracking-widest uppercase pointer-events-none text-white">
         <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]" /> COMPLETED
+          <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80]" /> {t('completed')}
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" /> TARGETS
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" /> {t('targets')}
         </div>
         <div className="flex items-center gap-3 text-blue-400">
-          <div className="w-2.5 h-2.5 rounded-full bg-blue-500" /> MY HOUSE
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" /> {t('myHouse')}
         </div>
       </div>
     </div>

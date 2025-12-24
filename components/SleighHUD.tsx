@@ -3,21 +3,26 @@ import React from 'react';
 import { Navigation, Wind, Map } from 'lucide-react';
 
 interface SleighHUDProps {
-  santaPos: { lat: number; lng: number; name: string };
+  santaPos: { lat: number; lng: number; name: string; country: string };
   t: (key: string) => string;
 }
 
 const SleighHUD: React.FC<SleighHUDProps> = ({ santaPos, t }) => {
   return (
     <div className="flex flex-col gap-3 pointer-events-none">
-      <div className="bg-slate-950/90 backdrop-blur-2xl border border-white/10 p-5 rounded-[2rem] shadow-2xl flex flex-col gap-4 min-w-[260px]">
+      <div className="bg-slate-950/90 backdrop-blur-2xl border border-white/10 p-5 rounded-[2rem] shadow-2xl flex flex-col gap-4 min-w-[280px]">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-red-600 rounded-2xl shadow-lg shadow-red-600/20">
             <Navigation className="w-5 h-5 text-white" />
           </div>
           <div>
             <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">{t('nextTarget')}</p>
-            <p className="text-lg font-black text-white truncate max-w-[160px]">{santaPos.name}</p>
+            <p className="text-lg font-black text-white truncate max-w-[180px]">
+              {santaPos.name}
+            </p>
+            <p className="text-[10px] font-bold text-red-500/80 uppercase tracking-widest">
+              {santaPos.country}
+            </p>
           </div>
         </div>
 
@@ -38,7 +43,7 @@ const SleighHUD: React.FC<SleighHUDProps> = ({ santaPos, t }) => {
       <div className="bg-red-600/90 backdrop-blur-xl px-5 py-2.5 rounded-full border border-red-400/30 self-start shadow-xl">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white flex items-center gap-2">
            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-           {t('locate')} LINK ACTIVE
+           SATELLITE LINK ACTIVE
         </p>
       </div>
     </div>

@@ -19,6 +19,57 @@ const App: React.FC = () => {
 
   const t = (key: string) => translations[key]?.[lang] || key;
 
+  // Automated Biometric Sensor Logic
+  // Every 60-150 seconds, show "Activity" for 10-20 seconds
+  useEffect(() => {
+    let timeoutId: number;
+
+    const toggleSensor = () => {
+      setIsSomeoneInRoom(prev => {
+        const nextState = !prev;
+        // If it was ON, set duration for OFF (60-150s)
+        // If it was OFF, set duration for ON (10-20s)
+        const duration = nextState 
+          ? (10 + Math.random() * 10) * 1000 
+          : (60 + Math.random() * 90) * 1000;
+        
+        timeoutId = window.setTimeout(toggleSensor, duration);
+        return nextState;
+      });
+    };
+
+    // Start initial sequence
+    timeoutId = window.setTimeout(toggleSensor, 20000); // Wait 20s before first activity
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Initialize a random "Home" location and delivery window on start
+  useEffect(() => {
+    if (!userLocation) {
+      // Default to a somewhat random location or browser location
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({
+            address: "Current Location",
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            localTime: new Date()
+          });
+        },
+        () => {
+          // Fallback if blocked
+          setUserLocation({
+            address: "Home Hub",
+            lat: 48.8566,
+            lng: 2.3522,
+            localTime: new Date()
+          });
+        }
+      );
+    }
+  }, []);
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -67,11 +118,11 @@ const App: React.FC = () => {
   }, [currentTimeUTC]);
 
   const santaPos = useMemo(() => {
-    const visiting = processedCities.filter(c => !c.visited)[0];
+    const visiting = processedCities.find(c => !c.visited);
     const lastVisited = processedCities.filter(c => c.visited).slice(-1)[0];
 
-    if (!visiting) return { lat: 0, lng: -157, name: "North Pole Hub" };
-    if (!lastVisited) return { lat: 90, lng: 0, name: "North Pole Departure" };
+    if (!visiting) return { lat: 0, lng: -157, name: "North Pole Hub", country: "Arctic" };
+    if (!lastVisited) return { lat: 90, lng: 0, name: "North Pole Departure", country: "Arctic" };
 
     const segmentDuration = visiting.visitTimeUTC - lastVisited.visitTimeUTC;
     const segmentProgress = (currentTimeUTC - lastVisited.visitTimeUTC) / (segmentDuration || 1);
@@ -79,20 +130,37 @@ const App: React.FC = () => {
     return {
       lat: lastVisited.lat + (visiting.lat - lastVisited.lat) * segmentProgress,
       lng: lastVisited.lng + (visiting.lng - lastVisited.lng) * segmentProgress,
-      name: visiting.name
+      name: visiting.name,
+      country: visiting.country
     };
   }, [processedCities, currentTimeUTC]);
 
+  // Random 45 minute window calculation within 2am-6am
+  const estimateWindow = useMemo(() => {
+    const startHour = 2 + Math.random() * 3.25; // Randomly between 2:00 and 5:15
+    const endHour = startHour + 0.75; // 45 minutes later
+    
+    const format = (h: number) => {
+      const hours = Math.floor(h);
+      const minutes = Math.round((h - hours) * 60);
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    };
+    
+    return `${format(startHour)} — ${format(endHour)}`;
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#05081a] text-white relative flex flex-col overflow-hidden">
-      {snowflakes.map(i => (
-        <div key={i} className="snowflake" style={{
-          left: `${Math.random() * 100}%`,
-          animationDuration: `${5 + Math.random() * 10}s`,
-          animationDelay: `${Math.random() * 5}s`,
-          fontSize: `${10 + Math.random() * 10}px`
-        }}>❄</div>
-      ))}
+      <div className="fixed inset-0 pointer-events-none z-[5]">
+        {snowflakes.map(i => (
+          <div key={i} className="snowflake" style={{
+            left: `${Math.random() * 100}%`,
+            animationDuration: `${5 + Math.random() * 10}s`,
+            animationDelay: `${Math.random() * 5}s`,
+            fontSize: `${10 + Math.random() * 10}px`
+          }}>❄</div>
+        ))}
+      </div>
 
       <header className="p-4 md:px-8 bg-red-900/40 backdrop-blur-xl border-b border-red-700/30 flex justify-between items-center sticky top-0 z-50">
         <div className="flex items-center gap-4">
@@ -132,56 +200,55 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-4 md:p-8 overflow-hidden max-h-[calc(100vh-80px)]">
+      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-4 md:p-8 overflow-hidden max-h-[calc(100vh-80px)] z-10">
         <div className="flex-[3] flex flex-col gap-6 overflow-hidden">
           <div className="relative flex-1 bg-black/50 rounded-[2.5rem] border border-white/5 shadow-inner overflow-hidden min-h-[450px]">
             <MapView 
               cities={processedCities} 
               santaPos={santaPos} 
               userLocation={userLocation}
+              t={t}
             />
             
             {isSomeoneInRoom && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-sm px-4">
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-sm px-4 pointer-events-none">
                 <div className="bg-red-600/90 text-white p-5 rounded-2xl shadow-2xl border border-red-400 flex items-center gap-4 animate-bounce backdrop-blur-md">
                   <AlertTriangle className="w-8 h-8 flex-shrink-0" />
                   <div>
-                    <p className="font-black text-lg uppercase tracking-tight">ALERT: ACTIVITY DETECTED</p>
-                    <p className="text-xs font-bold opacity-80">Santa is holding position until all kids are in bed.</p>
+                    <p className="font-black text-lg uppercase tracking-tight">{t('alertActivity')}</p>
+                    <p className="text-xs font-bold opacity-80">{t('santaHolding')}</p>
                   </div>
                 </div>
               </div>
             )}
             
-            <div className="absolute bottom-6 left-6 z-20">
+            <div className="absolute bottom-6 left-6 z-[1100]">
                <SleighHUD santaPos={santaPos} t={t} />
             </div>
           </div>
 
           <Controls 
-            setUserLocation={setUserLocation} 
+            estimateWindow={estimateWindow}
             isSomeoneInRoom={isSomeoneInRoom} 
-            setIsSomeoneInRoom={setIsSomeoneInRoom} 
-            userLocation={userLocation}
             t={t}
           />
         </div>
 
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
           <div className="grid grid-cols-2 gap-4">
-            <StatCard icon={<Home className="text-blue-400" />} label={t('households')} value={stats.householdsVisited.toLocaleString()} total={stats.totalHouseholds.toLocaleString()} color="blue" />
-            <StatCard icon={<Users className="text-green-400" />} label={t('kidsVisited')} value={stats.kidsVisited.toLocaleString()} total={stats.totalKids.toLocaleString()} color="green" />
-            <StatCard icon={<Gift className="text-red-400" />} label={t('giftsSent')} value={stats.giftsDelivered.toLocaleString()} total={stats.totalGifts.toLocaleString()} color="red" />
-            <StatCard icon={<CheckCircle2 className="text-yellow-400" />} label={t('completion')} value={`${stats.completionRate.toFixed(1)}%`} total="100%" color="yellow" />
+            <StatCard icon={<Home className="text-blue-400" />} label={t('households')} value={stats.householdsVisited.toLocaleString()} total={stats.totalHouseholds.toLocaleString()} color="blue" t={t} />
+            <StatCard icon={<Users className="text-green-400" />} label={t('kidsVisited')} value={stats.kidsVisited.toLocaleString()} total={stats.totalKids.toLocaleString()} color="green" t={t} />
+            <StatCard icon={<Gift className="text-red-400" />} label={t('giftsSent')} value={stats.giftsDelivered.toLocaleString()} total={stats.totalGifts.toLocaleString()} color="red" t={t} />
+            <StatCard icon={<CheckCircle2 className="text-yellow-400" />} label={t('completion')} value={`${stats.completionRate.toFixed(1)}%`} total="100%" color="yellow" t={t} />
           </div>
-          <Dashboard stats={stats} />
+          <Dashboard stats={stats} t={t} />
         </div>
       </main>
     </div>
   );
 };
 
-const StatCard: React.FC<any> = ({ icon, label, value, total, color }) => {
+const StatCard: React.FC<any> = ({ icon, label, value, total, color, t }) => {
   const colors: any = {
     red: 'border-red-500/20 bg-red-500/5',
     green: 'border-green-500/20 bg-green-500/5',
@@ -189,13 +256,16 @@ const StatCard: React.FC<any> = ({ icon, label, value, total, color }) => {
     yellow: 'border-yellow-500/20 bg-yellow-500/5',
   };
   return (
-    <div className={`p-5 rounded-3xl border ${colors[color]} backdrop-blur-xl shadow-lg`}>
-      <div className="flex items-center gap-3 mb-3">
-        {icon}
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{label}</span>
+    <div className={`p-5 rounded-3xl border ${colors[color]} backdrop-blur-xl shadow-lg relative group overflow-hidden`}>
+      <div className="relative z-10">
+        <div className="flex items-center gap-3 mb-3">
+          {icon}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{label}</span>
+        </div>
+        <div className="text-2xl font-black tracking-tight mb-1 text-white">{value}</div>
+        <div className="text-[10px] text-white/30 font-bold uppercase">{t('target')}: {total}</div>
       </div>
-      <div className="text-2xl font-black tracking-tight mb-1">{value}</div>
-      <div className="text-[10px] text-white/20 font-bold uppercase">Target: {total}</div>
+      <Snowflake className="absolute top-2 right-2 w-4 h-4 text-white/5 rotate-12 group-hover:rotate-45 transition-transform" />
     </div>
   );
 }
